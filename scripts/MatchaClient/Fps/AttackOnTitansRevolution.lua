@@ -16,7 +16,7 @@ information:
     * 
 ]]
 
-task.wait(1)
+
 
 warn("Kitty script running")
 
@@ -119,14 +119,14 @@ end
 local function HandleDifferentGasTankPaths()
   local Shiganshina = GetPath(Workspace, false, "Climbable", "Walls", "Gate", "GasTanks"); if Shiganshina then print("Shiganshina detected!"); GasTank = Shiganshina; return Shiganshina end
   local Trost = GetPath(Workspace, false,       "Unclimbable", "Camps", "Camp", "GasTanks"); if Trost then print("Trost detected!"); GasTank = Trost; return Trost end
-  -- game.Workspace.Climbable._Walls.Gate.GasTanks
   local OutSkirts = GetPath(Workspace, false,   "Climbable", "_Walls", "Gate", "GasTanks"); if OutSkirts then print("Outskirts detected!"); GasTank = OutSkirts; return OutSkirts end
   local Forest = GetPath(Workspace, false,      "Unclimbable", "Camps", "Camp", "GasTanks"); if Forest then print("Forest detected!"); GasTank = Forest; return Forest end
   local UtGard = GetPath(Workspace, false,      "Climbable", "Utgard", "GasTanks"); if UtGard then print("UtGard detected!"); GasTank = UtGard; return UtGard end
   local Docks = GetPath(Workspace, false,       "Unclimbable", "World", "Buildings", "Hanger", "GasTanks"); if Docks then print("Docks detected!"); GasTank = Docks; return Docks end
   local Stohess = GetPath(Workspace, false,     "Unclimbable", "Props", "HQ", "GasTanks"); if Stohess then print("Stohess detected!"); GasTank = Stohess; return Stohess end
   local Chapel = GetPath(Workspace, false,      "Unclimbable", "Reloads", "GasTanks"); if Chapel then print("Chapel detected!"); GasTank = Chapel; return Chapel end
-
+-- game.Workspace.Unclimbable.Objective.Waves.GasTanks
+  local Waves = GetPath(Workspace, false, "Unclimbable", "Objective", "Waves", "GasTanks");  if Waves then print("Waves detected!"); GasTank = Waves; return Waves end
 
   warn("No known GasTank path found!")
   return nil
@@ -320,7 +320,7 @@ end
 local function GetNearestTitan(): Instance? -- todo: Implement cache ( stop using TitanFolder:GetChildreN() ) !!
   local Character: Model? = GetCharacter(LocalPlayer); if not Character then return end
   local Hrp: BasePart? = GetHrp(Character); if not Hrp then return end
-  local HrpPosition = Hrp.Position
+  local HrpPosition = Hrp.Position; if not HrpPosition then return end
 
   local ShortestDistance = math.huge
   local ShortestTitan = nil
@@ -329,7 +329,7 @@ local function GetNearestTitan(): Instance? -- todo: Implement cache ( stop usin
   for i, titan in ipairs(TitansFolder:GetChildren()) do
     local TitanCache = GetTitanCache(titan); if not TitanCache then continue end
 
-    local TitanHrp: BasePart? = TitanCache.Parts.Hrp or GetHrp(titan); if not TitanHrp then TitanCache.Parts.Hrp = TitanHrp; continue  end
+    local TitanHrp: BasePart? = TitanCache.Parts.Hrp or GetHrp(titan); if not TitanHrp then TitanCache.Parts.Hrp = TitanHrp; continue end
     local Distance = (HrpPosition - TitanHrp.Position).Magnitude
 
     if Distance < ShortestDistance then
