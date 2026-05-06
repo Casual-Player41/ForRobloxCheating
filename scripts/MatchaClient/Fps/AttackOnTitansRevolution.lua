@@ -11,7 +11,7 @@ information:
 
 
 
-  * I have decided to take another aproach and use a lot of caching, so if stuff breaks, blame me 😇😇
+  * I have decided to take another aproach and use a lot of caching, so if stuff breaks, blame me.
   * todo:
     * 
 ]]
@@ -20,7 +20,7 @@ information:
 
 warn("Kitty script running")
 
--- game.Players.LocalPlayer.Character.HumanoidRootPart.Position = Vector3.new(900, 99999, 900)
+
 
 
 local Players = game:GetService("Players")
@@ -35,12 +35,12 @@ local GasTank;
 
 local SafePos = Vector3.new(900, 9999, 900) -- Maybe search a better version instead of just air..?
 
---// Localizing globals for performance (it's pretty huge, try it yourself)
 local MathSin = math.sin
 local MathPi = math.pi
 
 local OsClock = os.clock
 
+local StringLower = string.lower
 
 type TitanEntry = {
   Instance: Instance?,
@@ -70,6 +70,26 @@ type TitanEntry = {
 
 
 --#region -- Start of functions!
+local function DebugPrint(Mode: string, ...: string)
+  local Message = ...
+  local ModeLower = StringLower(Mode)
+
+  if ModeLower == "print" then
+    print("[Kitty's Aotr] [print]: " .. Message)
+  elseif ModeLower == "warn" then
+    warn("[Kitty's Aotr] [warn]: " .. Message)
+  elseif ModeLower == "debug" then
+    print("[Kitty's Aotr] [debug]: " .. Message)
+  end
+
+
+
+end
+
+
+
+
+
 local function GetPath(root: Instance, Warning: boolean, ...): Instance?
   local CurrentInstance = root
   local args = {...}
@@ -125,7 +145,7 @@ local function HandleDifferentGasTankPaths()
   local Docks = GetPath(Workspace, false,       "Unclimbable", "World", "Buildings", "Hanger", "GasTanks"); if Docks then print("Docks detected!"); GasTank = Docks; return Docks end
   local Stohess = GetPath(Workspace, false,     "Unclimbable", "Props", "HQ", "GasTanks"); if Stohess then print("Stohess detected!"); GasTank = Stohess; return Stohess end
   local Chapel = GetPath(Workspace, false,      "Unclimbable", "Reloads", "GasTanks"); if Chapel then print("Chapel detected!"); GasTank = Chapel; return Chapel end
--- game.Workspace.Unclimbable.Objective.Waves.GasTanks
+
   local Waves = GetPath(Workspace, false, "Unclimbable", "Objective", "Waves", "GasTanks");  if Waves then print("Waves detected!"); GasTank = Waves; return Waves end
 
   warn("No known GasTank path found!")
@@ -282,7 +302,7 @@ local function TpAboveTitan(titan) -- This might require changes!
   local BobOffset = MathSin(OsClock() * MathPi * 2) * TitansInfo.BobAmplitude
 
 
-  Hrp.Position = Vector3.new(NapePosition.X, NapePosition.Y + BobHeight + BobOffset, NapePosition.Z)
+  Hrp.CFrame = CFrame.new(NapePosition.X, NapePosition.Y + BobHeight + BobOffset, NapePosition.Z)
 end
 
 
@@ -295,7 +315,7 @@ local function BringNapeToPlayer(titan: Instance, size: Vector3?)
   local Character: Model? = GetCharacter(LocalPlayer); if not Character then return end
   local Hrp: BasePart? = GetHrp(Character); if not Hrp then return end
 
-  Nape.Position = Hrp.Position + Vector3.new(0, 2, 0)
+  Nape.CFrame = Hrp.CFrame * CFrame.new(0, 2, 0)
   if size then Nape.Size = size end
 end
 
@@ -305,12 +325,12 @@ local function BringPartsToPlayer(titan: Instance, partNames: {string}, size: Ve
 
   local Character: Model? = GetCharacter(LocalPlayer); if not Character then return end
   local Hrp: BasePart? = GetHrp(Character); if not Hrp then return end
-  local PlayerPos = Hrp.Position
+  local PlayerPos = Hrp.CFrame
 
   for _, partName in ipairs(partNames) do
     local part = GetPath(titan, false, "Hitboxes", "Hit", partName)
     if part and part:IsA("BasePart") then
-      part.Position = PlayerPos + Vector3.new(0, 2, 0)
+      part.CFrame = PlayerPos * CFrame.new(0, 2, 0)
       if size then part.Size = size end
     end
   end
@@ -476,7 +496,7 @@ local function HandleAllReloads()
       Hrp.AssemblyLinearVelocity = Vector3.zero
       task.wait(0.1)
       Hrp.AssemblyLinearVelocity = Vector3.zero
-      Hrp.Position = Vector3.new(x + 6 , y, z)
+      Hrp.CFrame = CFrame.new(x + 6 , y, z)
 
 
       task.wait(0.3)
