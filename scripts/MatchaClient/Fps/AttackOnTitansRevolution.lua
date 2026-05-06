@@ -6,11 +6,21 @@ information:
   * Game link: https://www.roblox.com/games/13379208636/Attack-on-Titan-Revolution
 
   * Script version: 1.0.0
+
+
+
+
+
+  * I have decided to take another aproach and use a lot of caching, so if stuff breaks, blame me 😇😇
+  * todo:
+    * 
 ]]
 
-task.wait(5)
+task.wait(1)
 
 warn("Kitty script running")
+
+-- game.Players.LocalPlayer.Character.HumanoidRootPart.Position = Vector3.new(900, 99999, 900)
 
 
 local Players = game:GetService("Players")
@@ -109,7 +119,8 @@ end
 local function HandleDifferentGasTankPaths()
   local Shiganshina = GetPath(Workspace, false, "Climbable", "Walls", "Gate", "GasTanks"); if Shiganshina then print("Shiganshina detected!"); GasTank = Shiganshina; return Shiganshina end
   local Trost = GetPath(Workspace, false,       "Unclimbable", "Camps", "Camp", "GasTanks"); if Trost then print("Trost detected!"); GasTank = Trost; return Trost end
-  local OutSkirts = GetPath(Workspace, false,   "Unclimbable", "Reloads", "GasTanks"); if OutSkirts then print("Outskirts detected!"); GasTank = OutSkirts; return OutSkirts end
+  -- game.Workspace.Climbable._Walls.Gate.GasTanks
+  local OutSkirts = GetPath(Workspace, false,   "Climbable", "_Walls", "Gate", "GasTanks"); if OutSkirts then print("Outskirts detected!"); GasTank = OutSkirts; return OutSkirts end
   local Forest = GetPath(Workspace, false,      "Unclimbable", "Camps", "Camp", "GasTanks"); if Forest then print("Forest detected!"); GasTank = Forest; return Forest end
   local UtGard = GetPath(Workspace, false,      "Climbable", "Utgard", "GasTanks"); if UtGard then print("UtGard detected!"); GasTank = UtGard; return UtGard end
   local Docks = GetPath(Workspace, false,       "Unclimbable", "World", "Buildings", "Hanger", "GasTanks"); if Docks then print("Docks detected!"); GasTank = Docks; return Docks end
