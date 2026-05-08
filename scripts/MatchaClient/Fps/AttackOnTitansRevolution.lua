@@ -5,7 +5,7 @@ information:
   * Game UniverseId: 4658598196
   * Game link: https://www.roblox.com/games/13379208636/Attack-on-Titan-Revolution
 
-  * Script version: 1.0.0
+  * Script version: 1.0.2
 
 
 
@@ -15,19 +15,65 @@ information:
   * todo:
     * 
 ]]
+task.wait(1)
 
-
-
-warn("Kitty script running")
-
-
-
-
+local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
+
+local TitansFolder;
+
+
+repeat task.wait(0.1); TitansFolder = Workspace:FindFirstChild("Titans") until TitansFolder
+repeat task.wait(0.1) until TitansFolder:FindFirstChildOfClass("Model")
+
+task.wait(1)
+warn("[Kitty's aotr] (debug): Sucesfully loaded the Titans folder!")
+
+
+local TitansInfo = {
+  ["HeightStall"] = 100, -- idk if this is HRP OR NAPE, needs testng
+  ["HeightAttack"] = 160,
+  ["HeightColossal"] = 200, -- idk if this is HRP OR NAPE, needs testing
+
+  ["BobAmplitude"] = 2,
+  ["BobSpeed"] = 10,
+
+}
+
+local UserConfigs = {
+  Autofarm = false,
+  DebugMode = true,
+}
+
+
+if UserConfigs.DebugMode then
+  local DateString = os.date("%Y-%m-%d")
+  local TimeString = os.date("%H-%M-%S")
+  local Path       = "KittyScripts/Aotr/logs/"
+  local FileName   = Path .. "log_" .. DateString .. "_" .. TimeString .. ".txt"
+
+    -- Build a detailed header
+  local Header = { 
+    string.rep("-", 50),
+    "Debug file for the script",
+    "Date: " .. os.date("%A, %B %d, %Y"),
+    "Time: " .. os.date("%X"),
+    "File Path: C:/matcha/workspace/" .. FileName,
+    string.rep("-", 50),
+    "\n"
+  }
+
+  writefile(FileName, table.concat(Header, "\n"))
+
+  warn("Debug mode is on. Logging to: " .. FileName)
+    
+  CurrentLogFile = FileName
+end
+
+
 
 local CurrentMission: string?;
 local GasTank;
@@ -39,8 +85,8 @@ local MathSin = math.sin
 local MathPi = math.pi
 
 local OsClock = os.clock
-
 local StringLower = string.lower
+
 
 type TitanEntry = {
   Instance: Instance?,
@@ -59,6 +105,7 @@ type TitanEntry = {
     OriginalSize: Vector3?,
     CurrentSize: Vector3?
   },
+
   State: {
     Alive: boolean
   },
@@ -68,27 +115,44 @@ type TitanEntry = {
   }
 }
 
+local TitansCache: { [number]: TitanEntry } = {}
+
 
 --#region -- Start of functions!
-local function DebugPrint(Mode: string, ...: string)
-  local Message = ...
-  local ModeLower = StringLower(Mode)
+local function DebugPrint(mode: string, ...)
+  if not UserConfigs.DebugMode then return end
 
-  if ModeLower == "print" then
-    print("[Kitty's Aotr] [print]: " .. Message)
-  elseif ModeLower == "warn" then
-    warn("[Kitty's Aotr] [warn]: " .. Message)
-  elseif ModeLower == "debug" then
-    print("[Kitty's Aotr] [debug]: " .. Message)
+  local Prefix    = "[Kitty's Aotr]"
+  local ModeLower = StringLower(mode)
+  
+  local Handlers = {
+    print = print,
+    warn  = warn,
+    debug = print
+  }
+
+  local Handler = Handlers[ModeLower]
+  if not Handler then warn(Prefix .. " [invalid mode]: " .. tostring(mode)); return end
+
+  local args         = table.pack(...)
+  local MessageParts = {}
+
+  for i = 1, args.n do
+    MessageParts[i] = tostring(args[i])
   end
 
+  local FinalMessage = table.concat(MessageParts, " ")
+  local ConsoleLine  = Prefix .. " [" .. ModeLower .. "]: " .. FinalMessage
 
+  Handler(ConsoleLine)
 
+  if CurrentLogFile then
+    local Timestamp = os.date("[%X]")
+    local FileLine  = Timestamp .. " [" .. ModeLower .. "] " .. FinalMessage .. "\n"
+    
+    appendfile(CurrentLogFile, FileLine)
+  end
 end
-
-
-
-
 
 local function GetPath(root: Instance, Warning: boolean, ...): Instance?
   local CurrentInstance = root
@@ -96,13 +160,13 @@ local function GetPath(root: Instance, Warning: boolean, ...): Instance?
 
   for _, name in ipairs(args) do
     if not CurrentInstance then
-      if Warning then warn("Path broke for: " .. name) end
+      if Warning then DebugPrint("warn", "Path broke for: " .. name) end
       return nil
     end
 
     local NextInstance = CurrentInstance:FindFirstChild(name)
     if not NextInstance then
-      if Warning then warn("Missing: " .. name .. " in " .. CurrentInstance:GetFullName()) end
+      if Warning then DebugPrint("warn", "Missing: " .. name .. " in " .. CurrentInstance:GetFullName()) end
       return nil
     end
 
@@ -119,7 +183,7 @@ local function GetOffsets()
   end)
 
   if not ok or not res then
-    warn("Failed to fetch offsets: " .. tostring(res))
+    DebugPrint("warn", "Failed to fetch offsets: " .. tostring(res))
     return {}
   end
 
@@ -128,45 +192,33 @@ local function GetOffsets()
   end)
 
   if not success then
-    warn("JSON decode failed")
+    DebugPrint("warn", "JSON decode failed")
     return {}
   end
 
   return decoded
-end
+end; local OffsetsFake = GetOffsets(); if not OffsetsFake or OffsetsFake == {} then return end
 
 
 local function HandleDifferentGasTankPaths()
-  local Shiganshina = GetPath(Workspace, false, "Climbable", "Walls", "Gate", "GasTanks"); if Shiganshina then print("Shiganshina detected!"); GasTank = Shiganshina; return Shiganshina end
-  local Trost = GetPath(Workspace, false,       "Unclimbable", "Camps", "Camp", "GasTanks"); if Trost then print("Trost detected!"); GasTank = Trost; return Trost end
-  local OutSkirts = GetPath(Workspace, false,   "Climbable", "_Walls", "Gate", "GasTanks"); if OutSkirts then print("Outskirts detected!"); GasTank = OutSkirts; return OutSkirts end
-  local Forest = GetPath(Workspace, false,      "Unclimbable", "Camps", "Camp", "GasTanks"); if Forest then print("Forest detected!"); GasTank = Forest; return Forest end
-  local UtGard = GetPath(Workspace, false,      "Climbable", "Utgard", "GasTanks"); if UtGard then print("UtGard detected!"); GasTank = UtGard; return UtGard end
-  local Docks = GetPath(Workspace, false,       "Unclimbable", "World", "Buildings", "Hanger", "GasTanks"); if Docks then print("Docks detected!"); GasTank = Docks; return Docks end
-  local Stohess = GetPath(Workspace, false,     "Unclimbable", "Props", "HQ", "GasTanks"); if Stohess then print("Stohess detected!"); GasTank = Stohess; return Stohess end
-  local Chapel = GetPath(Workspace, false,      "Unclimbable", "Reloads", "GasTanks"); if Chapel then print("Chapel detected!"); GasTank = Chapel; return Chapel end
+  local Shiganshina = GetPath(Workspace, false, "Climbable",   "Walls",      "Gate",      "GasTanks"); if Shiganshina then DebugPrint("debug", "Shiganshina detected!"); GasTank = Shiganshina; return Shiganshina end
+  local Trost       = GetPath(Workspace, false, "Unclimbable", "Camps",      "Camp",      "GasTanks"); if Trost       then DebugPrint("debug", "Trost detected!");       GasTank = Trost;       return Trost       end
+  local OutSkirts   = GetPath(Workspace, false, "Climbable",   "_Walls",     "Gate",      "GasTanks"); if OutSkirts   then DebugPrint("debug", "Outskirts detected!");   GasTank = OutSkirts;   return OutSkirts   end
+  local Forest      = GetPath(Workspace, false, "Unclimbable", "Camps",      "Camp",      "GasTanks"); if Forest      then DebugPrint("debug", "Forest detected!");      GasTank = Forest;      return Forest      end
+  local UtGard      = GetPath(Workspace, false, "Climbable",   "Utgard",     "GasTanks");              if UtGard      then DebugPrint("debug", "UtGard detected!");      GasTank = UtGard;      return UtGard      end
+  local Docks       = GetPath(Workspace, false, "Unclimbable", "World",      "Buildings", "Hanger",   "GasTanks"); if Docks  then DebugPrint("debug", "Docks detected!");       GasTank = Docks;       return Docks       end
+  local Stohess     = GetPath(Workspace, false, "Unclimbable", "Props",      "HQ",        "GasTanks"); if Stohess     then DebugPrint("debug", "Stohess detected!");     GasTank = Stohess;     return Stohess     end
+  local Chapel      = GetPath(Workspace, false, "Unclimbable", "Reloads",    "GasTanks");              if Chapel      then DebugPrint("debug", "Chapel detected!");      GasTank = Chapel;      return Chapel      end
 
-  local Waves = GetPath(Workspace, false, "Unclimbable", "Objective", "Waves", "GasTanks");  if Waves then print("Waves detected!"); GasTank = Waves; return Waves end
+  local Waves       = GetPath(Workspace, false, "Unclimbable", "Objective",  "Waves",     "GasTanks"); if Waves       then DebugPrint("debug", "Waves detected!");       GasTank = Waves;       return Waves       end
 
-  warn("No known GasTank path found!")
+  DebugPrint("warn", "No known GasTank path found. Please report this to me on discord, @roguekitty. ( with dot yes ).")
   return nil
-end
+end; HandleDifferentGasTankPaths(); if not GasTank then return end
 
-
-
--- // A little more variables!
-local Offsets = GetOffsets().Offsets
-
-
+-- // A little more variables
+local Offsets = OffsetsFake.Offsets
 local DownMiddlePartUi = GetPath(PlayerGui, true, "Interface", "HUD", "Main", "Top", "7"); if not DownMiddlePartUi then return end
-local TitansFolder = GetPath(Workspace, true, "Titans"); if not TitansFolder then return end
-
-local TitansCache: { [number]: TitanEntry } = {}
-
-local function GetTitanCache(titan): TitanEntry?
-  if not titan or not titan.Address then return nil end
-  return TitansCache[titan.Address]
-end
 
 
 --== Offsets ==--
@@ -180,24 +232,13 @@ local LastReloadingTime = 0
 
 
 
-local TitansInfo = {
-  ["HeightStall"] = 100, -- idk if this is HRP OR NAPE, needs testng
-  ["HeightAttack"] = 160,
-  ["HeightColossal"] = 200, -- idk if this is HRP OR NAPE, needs testing
-
-  ["BobAmplitude"] = 2,
-  ["BobSpeed"] = 10,
-
-}
-
-local UserConfigs = {
-  Autofarm = true
-}
 
 
-HandleDifferentGasTankPaths(); if not GasTank then error("No gas found? Please report this to @roguekitty. ( with dot )"); return end
 
--- // Generic functions \\ --
+
+
+
+
 local function GetCharacter(player: Player): Model?
   local Character = player.Character
   return Character
@@ -216,13 +257,15 @@ local function GetHumanoid(instance: Instance): Humanoid?
 end
 
 
-local function HandleDifferentMissions()
-  -- Logic to get mission
-end
-
 
 
 -- // Titan functions \\ --
+local function GetTitanCache(titan): TitanEntry?
+  if not titan or not titan.Address then return nil end
+  return TitansCache[titan.Address]
+end
+
+
 local function GetNapePart(titan): BasePart?
   if not titan or not titan.Parent then return nil end
 
@@ -242,7 +285,7 @@ local function ModifyNapeHitbox(titan, x: number, y: number, z: number): boolean
   local TitanCache = GetTitanCache(titan); if not TitanCache then return nil end
   local TitanNape: BasePart? = GetNapePart(titan); if not TitanNape then return nil end
 
-  local Size = Vector3.new(x, y, z) -- Slighty more optimized, why not?
+  local Size = Vector3.new(x, y, z)
 
   TitanNape.Size = Size
   TitanCache.Nape.CurrentSize = Size
@@ -284,25 +327,27 @@ local function IsTitanAlive(titan): boolean
 end
 
 
-local function TpAboveTitan(titan) -- This might require changes!
-  if not titan or not titan.Parent then return end
+local function TpAboveTitan(titan): boolean -- This might require changes!
+  if not titan or not titan.Parent then return false end
 
-  local TitanCache = GetTitanCache(titan); if not TitanCache then return end
+  local TitanCache = GetTitanCache(titan); if not TitanCache then return false end
  
-  local TitanType: string? =  GetTitanType(titan); if not TitanType then return end
+  -- local TitanType =  GetTitanType(titan); if not TitanType then  DebugPrint("warn", "No titan type found for the titan: " .. tostring(titan.Name)) end -- Honestly, I don't know why I have it here
 
-  local Character = GetCharacter(LocalPlayer); if not Character then return end
-  local Hrp = GetHrp(Character); if not Hrp then return end
+  local Character = GetCharacter(LocalPlayer); if not Character then return false end
+  local Hrp = GetHrp(Character); if not Hrp then return false end
 
 
-  local TitanNape: BasePart? = GetNapePart(titan); if not TitanNape then return end
+  local TitanNape: BasePart? = GetNapePart(titan); if not TitanNape then return false end
   local NapePosition: Vector3 = TitanNape.Position
 
   local BobHeight = GetTitanBobHeight(titan)
   local BobOffset = MathSin(OsClock() * MathPi * 2) * TitansInfo.BobAmplitude
 
-
+  DebugPrint("debug", "Teleporting to the titan: " .. tostring(titan.Name))
   Hrp.CFrame = CFrame.new(NapePosition.X, NapePosition.Y + BobHeight + BobOffset, NapePosition.Z)
+
+  return true
 end
 
 
@@ -320,7 +365,7 @@ local function BringNapeToPlayer(titan: Instance, size: Vector3?)
 end
 
 
-local function BringPartsToPlayer(titan: Instance, partNames: {string}, size: Vector3?)
+local function _BringPartsToPlayer(titan: Instance, partNames: {string}, size: Vector3?)
   if not titan or not titan.Parent then return end
 
   local Character: Model? = GetCharacter(LocalPlayer); if not Character then return end
@@ -336,43 +381,13 @@ local function BringPartsToPlayer(titan: Instance, partNames: {string}, size: Ve
   end
 end
 
-
-local function GetNearestTitan(): Instance? -- todo: Implement cache ( stop using TitanFolder:GetChildreN() ) !!
-  local Character: Model? = GetCharacter(LocalPlayer); if not Character then return end
-  local Hrp: BasePart? = GetHrp(Character); if not Hrp then return end
-  local HrpPosition = Hrp.Position; if not HrpPosition then return end
-
-  local ShortestDistance = math.huge
-  local ShortestTitan = nil
-
-  
-  for i, titan in ipairs(TitansFolder:GetChildren()) do
-    local TitanCache = GetTitanCache(titan); if not TitanCache then continue end
-
-    local TitanHrp: BasePart? = TitanCache.Parts.Hrp or GetHrp(titan); if not TitanHrp then TitanCache.Parts.Hrp = TitanHrp; continue end
-    local Distance = (HrpPosition - TitanHrp.Position).Magnitude
-
-    if Distance < ShortestDistance then
-      ShortestTitan = titan
-      ShortestDistance = Distance
-    end
-  end
-
-  if ShortestTitan then
-    -- print("Shortest distance titan is: " .. tostring(ShortestTitan.Name))
-  end
-
-  return ShortestTitan
-end
-
-
 local function RegisterTitan(titan)
   if not titan or not titan.Address then warn("RegisterTitan: invalid titan or missing Address"); return end
   local address = titan.Address
 
-  -- print("Cache lookup:", titan, TitansCache[address])
-  -- print("Instance: ", titan, titan:GetFullName(), tostring(address))
-  if TitansCache[address] then --[[print("Titan already cached: ", titan);]] return end
+  -- DebugPrint("debug", "Cache lookup: ", titan, TitansCache[address])
+  -- DebugPrint("debug", "Instance: ", titan, titan:GetFullName(), tostring(address))
+  if TitansCache[address] then --[[ DebugPrint("debug", "Titan already cached: ", titan);]] return end
 
 
   TitansCache[address] = {
@@ -409,8 +424,54 @@ local function RegisterTitan(titan)
   TitanCache.Parts.Hrp = GetHrp(titan)
   TitanCache.State.Alive = IsTitanAlive(titan)
 
-  print("Register: " .. titan.Name .. ", nape: " .. tostring(TitanCache.Parts.Nape))
+  local NapeName = TitanCache.Parts.Nape and TitanCache.Parts.Nape.Name or "nil" 
+  DebugPrint( "debug", string.format("Register information: Titan Info: %s %s Titan | Nape: %s", TitanCache.Info.Name, TitanCache.Info.Type, NapeName ))
 end
+
+
+local function GetNearestTitan(): Instance? -- todo: Implement cache ( stop using TitanFolder:GetChildren() ) !!
+
+  local Character: Model? = GetCharacter(LocalPlayer); if not Character then return end
+  local Hrp: BasePart? = GetHrp(Character); if not Hrp then return end
+  local HrpPosition = Hrp.Position
+
+  local ShortestDistance = math.huge
+  local ShortestTitan = nil
+
+
+  for i, Titan in ipairs(TitansFolder:GetChildren()) do
+    RegisterTitan(Titan)
+
+    local TitanCache = GetTitanCache(Titan); if not TitanCache then continue end
+    if not IsTitanAlive(Titan) then continue end
+
+    local CachedHrp: BasePart? = TitanCache.Parts.Hrp
+
+    if CachedHrp and not CachedHrp.Parent then
+      CachedHrp = nil
+      TitanCache.Parts.Hrp = nil
+    end
+
+    local TitanHrp: BasePart? = CachedHrp or GetHrp(Titan); if not TitanHrp then continue end
+    TitanCache.Parts.Hrp = TitanHrp
+
+    local TitanPosition = TitanHrp.Position
+    local Distance = (HrpPosition - TitanPosition).Magnitude
+
+    if Distance < ShortestDistance then
+      ShortestTitan = Titan
+      ShortestDistance = Distance
+    end
+  end
+
+ 
+  if ShortestTitan then
+    DebugPrint("debug", "Shortest distance titan is: " .. tostring(ShortestTitan.Name))
+  end
+
+  return ShortestTitan
+end
+
 
 
 
@@ -430,7 +491,7 @@ local function AreBladesFullyBroken()
   end)
 
   if not ok then
-    warn("Memory read failed: ", AreBroken)
+    DebugPrint("warn", "Memory read failed: ", AreBroken)
     AreBroken = false
   end
 
@@ -449,7 +510,6 @@ local function DoINeedToRefill(): boolean -- the 0 / 3 counter
   local BladesValue = tonumber(TextForBlades.Text:match("%d+")) or 0
   local GasValue = tonumber(TextForGas.Text:match("%d+")) or 0
 
-  -- print("Blades are broken!")
 
   if BladesValue == 0 or GasValue == 0 then return true end
 
@@ -477,21 +537,20 @@ local function HandleAllReloads()
 
   -- Case 1: No charges -> need refill
   if DoINeedToRefill() then
-    warn("Detected refilling!")
+    DebugPrint("debug", "Detected that the local player needs refilling.")
     while DoINeedToRefill() do
 
-      if OsClock() - Time > 10 then warn("Timeout happened for refill!"); break end
+      if OsClock() - Time > 10 then DebugPrint("warn", "Timeout happened for refill."); break end
       if IsReloadingBlades() then task.wait(0.5); continue end
 
-      local PartAddress = memory_read("uintptr_t", GasTank.Address + PrimaryPartOffset); if PartAddress == 0 then warn("No PrimaryPart"); return end
-      local Primitive = memory_read("uintptr_t", PartAddress + BaseToPrimitiveOffset); if Primitive == 0 then warn("No Primitive"); return end
+      local PartAddress = memory_read("uintptr_t", GasTank.Address + PrimaryPartOffset); if PartAddress == 0 then DebugPrint("warn", "No PrimaryPart for gas tank found!"); return end
+      local Primitive = memory_read("uintptr_t", PartAddress + BaseToPrimitiveOffset); if Primitive == 0 then DebugPrint("warn", "No Primitive part found for 'PartAdress'!"); return end
 
 
       local x = memory_read("float", Primitive + PrimitivePositionOffset)
       local y = memory_read("float", Primitive + PrimitivePositionOffset + 4)
       local z = memory_read("float", Primitive + PrimitivePositionOffset + 8)
 
-      -- print(x, y, z)
 
       Hrp.AssemblyLinearVelocity = Vector3.zero
       task.wait(0.1)
@@ -512,14 +571,14 @@ local function HandleAllReloads()
     if ReloadingBlades then return end
     if os.clock() - LastReloadingTime < 3 then return end
 
-    warn("Detected reloading!")
+    DebugPrint("debug", "Detected that the local player needs reloading.")
     ReloadingBlades = true 
     LastReloadingTime = os.clock()
 
     task.spawn(function()
       if not isrbxactive() then ReloadingBlades = false; return end
 
-      print("Proceeding to reload blades")
+      DebugPrint("debug", "Proceeding to reload blades.")
       Hrp.Position = SafePos
       keypress(0x52)
       task.wait(2)
@@ -544,15 +603,20 @@ local function KillTitan(titan)
   while true do
     task.wait(0.06)
     if not IsTitanAlive(titan) then break end -- Alive check
-    if OsClock() - StartTime > 10 then warn("Timeout happened for a titan!"); break end -- Timeout
+    if OsClock() - StartTime > 10 then DebugPrint("warn", "Timeout happened while trying to kill the titan: " .. tostring(titan.Name)); break end -- Timeout
     if AreBladesFullyBroken() then break end
 
     if not isrbxactive() then
       Hrp.Position = SafePos
-      task.wait(1)
+      task.wait(0.1)
 
     else
-      TpAboveTitan(titan)
+      local Sucess = TpAboveTitan(titan)
+      if not Sucess then
+        DebugPrint("warn", "Failed to tp. Abandoning")
+        task.wait(0.1)
+        break
+      end
       BringNapeToPlayer(titan, Vector3.new(10, 10, 10))
 
       task.wait()
@@ -580,7 +644,7 @@ local function IsObjectVisible(object): boolean?
     return memory_read("byte", object.Address + VisibleOffset)
   end)
 
-  if not ok then warn("Something went wrong in memory reading for the object: " .. tostring(object:GetFullName()) .. "."); return nil end
+  if not ok then DebugPrint("warn", "Something went wrong in memory reading for the object: " .. tostring(object:GetFullName()) .. "."); return nil end
 
   if value == 0 then
     return false
@@ -589,7 +653,7 @@ local function IsObjectVisible(object): boolean?
   end
 end
 
-local function IsRetryVisible(): boolean? -- Fixed!
+local function IsRetryVisible(): boolean?
   local Path = GetPath(PlayerGui, true, "Interface", "Rewards"); if not Path then return false end
   return IsObjectVisible(Path)
 end
@@ -611,19 +675,23 @@ end
 task.spawn(function()
   while true do
     task.wait(0.1)
-    -- print("Loop running!")
     -- if not UserConfigs.Autofarm then task.wait(1); continue end
+    DebugPrint("debug", "The main loop is running!")
 
     if IsRetryVisible() then task.wait(0.5); PressRetry(); continue end
     if AreBladesFullyBroken() then HandleAllReloads(); continue end
-    -- lowkey need more logic /:
 
-    local NearestTitan = GetNearestTitan(); if not NearestTitan then continue end -- I want to use this but it needs fixing! For now, I shall use something else
-    for i, v in ipairs(TitansFolder:GetChildren()) do
-      if AreBladesFullyBroken() then break end
-      KillTitan(v)
-      task.wait(0.1)
-    end
+  
+    local NearestTitan = GetNearestTitan(); if not NearestTitan then continue end
+
+
+    -- local TitansFolderChildren = TitansFolder:GetChildren(); if not TitansFolderChildren then DebugPrint("warn", "Something went wrong in getting titan childrens!") end
+    -- DebugPrint("debug", "The number of current titans in TitansFolder is: " .. tostring(#TitansFolderChildren))
+
+
+    KillTitan(NearestTitan)
+
+    task.wait(0.1)
   end
 end)
 
@@ -632,7 +700,7 @@ end)
 
 task.spawn(function()
   while true do
-    print("Cache loop running!")
+    DebugPrint("debug", "Cache loop is running.")
     
     for key, cache in pairs(TitansCache) do
       local Titan = cache.Instance; if not Titan or not Titan.Parent then TitansCache[key] = nil end
@@ -641,6 +709,6 @@ task.spawn(function()
     for i, titan in ipairs(TitansFolder:GetChildren()) do
       RegisterTitan(titan)
     end
-    task.wait(5)
+    task.wait(3)
   end
 end)
