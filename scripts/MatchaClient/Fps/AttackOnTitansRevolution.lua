@@ -14,7 +14,7 @@ information:
 
 task.wait(1)
 
-if game.GameId ~= 4658598196 then 
+if game.GameId ~= 4658598196 then
   warn("[Kitty's Aotr] This script is only made for Attack on Titans Revolution, and it seems like you are not in the game. Please execute this script in the game, and if you think this is a mistake, report this to me on discord, @roguekitty. ( with dot yes ).")
   return
 end
@@ -60,10 +60,9 @@ local DebugRateLimit = {
 }
 
 
-local DebugEnabled = UserConfigs.DebugMode
 
 local function DebugPrint(mode: string, maxAmount: number, ...)
-  if not DebugEnabled then return end
+  if not UserConfigs.DebugMode then return end
 
   local Prefix = "[Kitty's Aotr]"
   local ModeLower = StringLower(mode)
@@ -124,13 +123,13 @@ local function GetPath(root: Instance, Warning: boolean, ...): Instance?
 
   for _, name in ipairs(args) do
     if not CurrentInstance then
-      if Warning and DebugEnabled then DebugPrint("warn", 0, "Path broke for: " .. name) end
+      if Warning then DebugPrint("warn", 0, "Path broke for: " .. name) end
       return nil
     end
 
     local NextInstance = CurrentInstance:FindFirstChild(name)
     if not NextInstance then
-      if Warning and DebugEnabled then DebugPrint("warn", 0, "Missing: " .. name .. " in " .. CurrentInstance:GetFullName()) end
+      if Warning then DebugPrint("warn", 0, "Missing: " .. name .. " in " .. CurrentInstance:GetFullName()) end
       return nil
     end
 
@@ -147,7 +146,7 @@ local function GetOffsets()
   end)
 
   if not ok or not res then
-    if DebugEnabled then DebugPrint("warn", 0, "Failed to fetch offsets: " .. tostring(res)) end
+    DebugPrint("warn", 0, "Failed to fetch offsets: " .. tostring(res))
     return {}
   end
 
@@ -156,7 +155,7 @@ local function GetOffsets()
   end)
 
   if not success then
-    if DebugEnabled then DebugPrint("warn", 0, "JSON decode failed") end
+    DebugPrint("warn", 0, "JSON decode failed")
     return {}
   end
 
@@ -176,8 +175,7 @@ type TitanEntry = {
 
   Parts: {
     Nape: BasePart?,
-    Hrp: BasePart?,
-    Humanoid: Humanoid?
+    Hrp: BasePart?
   },
 
   Nape: {
@@ -318,35 +316,25 @@ local _CurrentMission: string?;
 
 local GasTank;
 
-local CachedNearestTitan = nil
-local LastNearestUpdate = 0
-
-local CurrentTitanTarget = nil
-
-local CachedBladesBroken = false
-local LastBladeCheck = 0
-
-local CachedRefill = false
-local LastRefillCheck = 0
-
+local _CachedGasTankPos = nil
 
 
 
 
 
 local function HandleDifferentGasTankPaths(): Instance?
-  local Shiganshina = GetPath(Workspace, false, "Climbable",   "Walls",      "Gate",      "GasTanks"); if Shiganshina then if DebugEnabled then DebugPrint("debug", 0, "Shiganshina detected!") end; GasTank = Shiganshina; return Shiganshina end
-  local Trost       = GetPath(Workspace, false, "Unclimbable", "Camps",      "Camp",      "GasTanks"); if Trost       then if DebugEnabled then DebugPrint("debug", 0, "Trost detected!") end;       GasTank = Trost;       return Trost       end
-  local OutSkirts   = GetPath(Workspace, false, "Climbable",   "_Walls",     "Gate",      "GasTanks"); if OutSkirts   then if DebugEnabled then DebugPrint("debug", 0, "Outskirts detected!") end;   GasTank = OutSkirts;   return OutSkirts   end
-  local Forest      = GetPath(Workspace, false, "Unclimbable", "Camps",      "Camp",      "GasTanks"); if Forest      then if DebugEnabled then DebugPrint("debug", 0, "Forest detected!") end;      GasTank = Forest;      return Forest      end
-  local UtGard      = GetPath(Workspace, false, "Climbable",   "Utgard",     "GasTanks");              if UtGard      then if DebugEnabled then DebugPrint("debug", 0, "UtGard detected!") end;      GasTank = UtGard;      return UtGard      end
-  local Docks       = GetPath(Workspace, false, "Unclimbable", "World",      "Buildings", "Hanger",   "GasTanks"); if Docks  then if DebugEnabled then DebugPrint("debug", 0, "Docks detected!") end;       GasTank = Docks;       return Docks       end
-  local Stohess     = GetPath(Workspace, false, "Unclimbable", "Props",      "HQ",        "GasTanks"); if Stohess     then if DebugEnabled then DebugPrint("debug", 0, "Stohess detected!") end;     GasTank = Stohess;     return Stohess     end
-  local Chapel      = GetPath(Workspace, false, "Unclimbable", "Reloads",    "GasTanks");              if Chapel      then if DebugEnabled then DebugPrint("debug", 0, "Chapel detected!") end;      GasTank = Chapel;      return Chapel      end
+  local Shiganshina = GetPath(Workspace, false, "Climbable",   "Walls",      "Gate",      "GasTanks"); if Shiganshina then DebugPrint("debug", 0, "Shiganshina detected!"); GasTank = Shiganshina; return Shiganshina end
+  local Trost       = GetPath(Workspace, false, "Unclimbable", "Camps",      "Camp",      "GasTanks"); if Trost       then DebugPrint("debug", 0, "Trost detected!");       GasTank = Trost;       return Trost       end
+  local OutSkirts   = GetPath(Workspace, false, "Climbable",   "_Walls",     "Gate",      "GasTanks"); if OutSkirts   then DebugPrint("debug", 0, "Outskirts detected!");   GasTank = OutSkirts;   return OutSkirts   end
+  local Forest      = GetPath(Workspace, false, "Unclimbable", "Camps",      "Camp",      "GasTanks"); if Forest      then DebugPrint("debug", 0, "Forest detected!");      GasTank = Forest;      return Forest      end
+  local UtGard      = GetPath(Workspace, false, "Climbable",   "Utgard",     "GasTanks");              if UtGard      then DebugPrint("debug", 0, "UtGard detected!");      GasTank = UtGard;      return UtGard      end
+  local Docks       = GetPath(Workspace, false, "Unclimbable", "World",      "Buildings", "Hanger",   "GasTanks"); if Docks  then DebugPrint("debug", 0, "Docks detected!");       GasTank = Docks;       return Docks       end
+  local Stohess     = GetPath(Workspace, false, "Unclimbable", "Props",      "HQ",        "GasTanks"); if Stohess     then DebugPrint("debug", 0, "Stohess detected!");     GasTank = Stohess;     return Stohess     end
+  local Chapel      = GetPath(Workspace, false, "Unclimbable", "Reloads",    "GasTanks");              if Chapel      then DebugPrint("debug", 0, "Chapel detected!");      GasTank = Chapel;      return Chapel      end
 
-  local Waves       = GetPath(Workspace, false, "Unclimbable", "Objective",  "Waves",     "GasTanks"); if Waves       then if DebugEnabled then DebugPrint("debug", 0, "Waves detected!") end;       GasTank = Waves;       return Waves       end
+  local Waves       = GetPath(Workspace, false, "Unclimbable", "Objective",  "Waves",     "GasTanks"); if Waves       then DebugPrint("debug", 0, "Waves detected!");       GasTank = Waves;       return Waves       end
 
-  if DebugEnabled then DebugPrint("warn", 0, "No known GasTank path found. Please report this to me on discord, @roguekitty. ( with dot yes ).") end
+  DebugPrint("warn", 0, "No known GasTank path found. Please report this to me on discord, @roguekitty. ( with dot yes ).")
   return nil
 end; HandleDifferentGasTankPaths(); if not GasTank then return end
 
@@ -454,7 +442,7 @@ local function GetNapePart(titan): BasePart?
   local TitanCache = GetTitanCache(titan); if not TitanCache then return end
   local CachedNape = TitanCache.Parts.Nape; if CachedNape then return CachedNape end
 
-  local NapePart = GetPath(titan, true, "Hitboxes", "Hit", "Nape") :: BasePart; if not NapePart then return nil end
+  local NapePart = GetPath(titan, true, "Hitboxes", "Hit", "Nape"); if not NapePart then return nil end
 
   TitanCache.Parts.Nape = NapePart
   return NapePart
@@ -465,21 +453,9 @@ local function GetTitanHrp(titan): BasePart?
   if not titan or not titan.Parent then return nil end
 
   local TitanCache = GetTitanCache(titan); if not TitanCache then return GetHrp(titan) end
-  local Hrp = TitanCache.Parts.Hrp or GetHrp(titan); if not Hrp then return nil end
+  local Hrp = TitanCache.Parts.Hrp or GetHrp(titan); if not Hrp then return nil end 
 
-  TitanCache.Parts.Hrp = Hrp
   return Hrp
-end
-
-
-local function GetTitanHumanoid(titan): Humanoid?
-  if not titan or not titan.Parent then return nil end
-
-  local TitanCache = GetTitanCache(titan); if not TitanCache then return GetHumanoid(titan) end
-  local Humanoid = TitanCache.Parts.Humanoid or GetHumanoid(titan); if not Humanoid then return nil end
-
-  TitanCache.Parts.Humanoid = Humanoid
-  return Humanoid
 end
 
 
@@ -506,7 +482,7 @@ local function IsTitanAlive(titan): boolean
   if not titan or not titan.Parent then return false end
 
   local TitanCache = GetTitanCache(titan)
-  local TitanHumanoid = GetTitanHumanoid(titan); if not TitanHumanoid then return false end
+  local TitanHumanoid = GetHumanoid(titan); if not TitanHumanoid then return false end
     
 
   if not TitanCache then return TitanHumanoid.Health > 0 or false end
@@ -527,20 +503,20 @@ local function TpAboveTitan(titan): boolean -- This might require changes!
   local Hrp: BasePart? = CharacterCache.Hrp or GetLocalPlayerHrp(); if not Hrp then return false end
 
 
-  local TitanHrp: BasePart? = GetTitanHrp(titan); if not TitanHrp or not TitanHrp:IsA("BasePart") then return false end
-  local Position: Vector3 = TitanHrp.Position
+  local TitanNape: BasePart? = GetNapePart(titan); if not TitanNape or not TitanNape:IsA("BasePart") then return false end
+  local NapePosition: Vector3 = TitanNape.Position
 
   local BobHeight = GetTitanBobHeight(titan); if not BobHeight then return false end
   local BobOffset = MathSin(OsClock() * MathPi * 2) * TitansInfo.BobAmplitude
 
-  if DebugEnabled then DebugPrint("debug", 3, "Teleporting to the titan: " .. tostring(titan.Name)) end
+  DebugPrint("debug", 3, "Teleporting to the titan: " .. tostring(titan.Name))
 
   local ok, err = pcall(function()
-    Hrp.CFrame = CFrame.new(Position.X, Position.Y + BobHeight + BobOffset, Position.Z)
+    Hrp.CFrame = CFrame.new(NapePosition.X, NapePosition.Y + BobHeight + BobOffset, NapePosition.Z)
   end)
   
   if not ok then
-    if DebugEnabled then DebugPrint("warn", 0, "Error happened while setting CFrame to titan: " .. err) end
+    DebugPrint("warn", 0, "Error happened while setting CFrame to titan: " .. err)
     return false
   end
 
@@ -561,9 +537,10 @@ local function BringNapeToPlayer(titan: Instance, size: Vector3?)
 end
 
 
+
 local function RegisterTitan(titan)
   if not titan or not titan.Address then 
-    if DebugEnabled then DebugPrint("warn", 0, ("RegisterTitan: invalid titan or missing Address: "), titan and tostring(titan.Name) or "nil", titan and tostring(titan.Address) or "0") end; return end
+    DebugPrint("warn", 0, ("RegisterTitan: invalid titan or missing Address: "), titan and tostring(titan.Name) or "nil", titan and tostring(titan.Address) or "0"); return end
   local TitanAddress = titan.Address
 
 
@@ -581,7 +558,6 @@ local function RegisterTitan(titan)
     Parts = {
       Nape = nil,
       Hrp = nil,
-      Humanoid = nil,
     },
 
     Nape = {
@@ -603,10 +579,9 @@ local function RegisterTitan(titan)
   TitanCache.Info.Type = GetTitanType(titan)
   TitanCache.Parts.Nape = GetNapePart(titan)
   TitanCache.Parts.Hrp = GetTitanHrp(titan)
-  TitanCache.Parts.Humanoid = GetTitanHumanoid(titan)
   TitanCache.State.Alive = IsTitanAlive(titan)
 
-  if DebugEnabled then DebugPrint( "debug", 0, string.format("Register information: Titan Info: %s", titan.Name  )) end
+  DebugPrint( "debug", 0, string.format("Register information: Titan Info: %s", titan.Name  ))
 end
 
 
@@ -615,7 +590,7 @@ local function _IgnoreTitan(titan, duration)
 
   local address = titan.Address; if not address then return end
 
-  if DebugEnabled then DebugPrint("debug", 0, "Ignoring titan: " .. tostring(titan.Name) .. "for " .. tostring(duration) .. "seconds.") end
+  DebugPrint("debug", 0, "Ignoring titan: " .. tostring(titan.Name) .. "for " .. tostring(duration) .. "seconds.")
   IgnoredTitansCache[address] = OsClock() + duration
 end
 
@@ -624,7 +599,7 @@ local function IsTitanIgnored(titan): boolean
   if not titan then return true end
   local ExpireTime = IgnoredTitansCache[titan.Address]; if not ExpireTime then return false end
 
-  if OsClock() > ExpireTime then IgnoredTitansCache[titan.Address] = nil; if DebugEnabled then DebugPrint("debug", 0, "Titan is no longer ignored: " .. tostring(titan.Name)) end; return false end
+  if OsClock() > ExpireTime then IgnoredTitansCache[titan.Address] = nil; DebugPrint("debug", 0, "Titan is no longer ignored: " .. tostring(titan.Name)); return false end
 
   return true
 end
@@ -657,6 +632,7 @@ local function GetNearestTitan(): Instance?
     if not titan or not titan.Parent then continue end
 
     if IsTitanIgnored(titan) then continue end
+    RegisterTitan(titan)
 
     local TitanCache = GetTitanCache(titan); if not TitanCache then continue end
     if not IsTitanAlive(titan) then continue end
@@ -677,7 +653,7 @@ local function GetNearestTitan(): Instance?
     end)
 
       if not ok or not Distance then
-        if DebugEnabled then DebugPrint("warn", 0, "Error getting distance, saved by pcall: " .. Distance) end
+        DebugPrint("warn", 0, "Error getting distance, saved by pcall: " .. Distance)
         RegisterFail(titan)
         continue
       end
@@ -689,37 +665,18 @@ local function GetNearestTitan(): Instance?
   end
 
  
-  if ShortestTitan and DebugEnabled then
+  if ShortestTitan then
     DebugPrint("debug", 3, "Shortest distance titan is: " .. tostring(ShortestTitan.Name))
   end
 
   return ShortestTitan
 end
 
-local function GetCachedNearestTitan()
-    local Now = OsClock()
-
-    if not CachedNearestTitan
-        or not CachedNearestTitan.Parent
-        or Now - LastNearestUpdate > 0.35
-    then
-        CachedNearestTitan = GetNearestTitan()
-        LastNearestUpdate = Now
-    end
-
-    return CachedNearestTitan
-end
 
 
 
 -- // Blade functions \\ --
-local function AreBladesFullyBroken(): boolean
-  local Now = OsClock()
-
-  if Now - LastBladeCheck < 0.3 then return false end
-
-  LastBladeCheck = Now
-
+local function AreBladesFullyBroken()
  local RightBlade, LeftBlade;
 
   RightBlade = BladeCache.RightBlade
@@ -758,7 +715,7 @@ local function AreBladesFullyBroken(): boolean
   end)
 
   if not ok then
-    if DebugEnabled then DebugPrint("warn", 0, "Memory read failed: ", AreBroken) end
+    DebugPrint("warn", 0, "Memory read failed: ", AreBroken)
     AreBroken = false
   end
 
@@ -768,11 +725,6 @@ end
 
 
 local function DoINeedToRefill(): boolean -- the 0 / 3 counter
-  local Now = OsClock()
-
-  if Now - LastRefillCheck < 0.5 then return false end
-  LastRefillCheck = Now
-
   local Blades = UiCache.Blades or GetPath(DownMiddlePartUi, false, "Blades"); if not Blades then return true end
   UiCache.Blades = Blades
 
@@ -812,19 +764,19 @@ local function GetGasTankPosition(): Vector3?
   -- Try to read from memory if not cached
   local GasTankAddress = CachedAddressesOrParts.GasTankAddress or GasTank.Address
   if not GasTankAddress or GasTankAddress == 0 then 
-    if DebugEnabled then DebugPrint("warn", 0, "No GasTank address found!") end
+    DebugPrint("warn", 0, "No GasTank address found!")
     return nil 
   end
 
   local PartAddress = CachedAddressesOrParts.PrimaryPartOffset or memory_read("uintptr_t", GasTankAddress + PrimaryPartOffset)
   if PartAddress == 0 then 
-    if DebugEnabled then DebugPrint("warn", 0, "No PrimaryPart for gas tank found!") end
+    DebugPrint("warn", 0, "No PrimaryPart for gas tank found!")
     return nil 
   end
 
   local Primitive = memory_read("uintptr_t", PartAddress + BaseToPrimitiveOffset)
   if Primitive == 0 then 
-    if DebugEnabled then DebugPrint("warn", 0, "No Primitive part found for gas tank!") end
+    DebugPrint("warn", 0, "No Primitive part found for gas tank!")
     return nil 
   end
 
@@ -835,7 +787,7 @@ local function GetGasTankPosition(): Vector3?
   local Position = Vector3New(x, y, z)
   CachedAddressesOrParts.GasTankPosition = Position
   
-  if DebugEnabled then DebugPrint("debug", 3, "Gas tank position cached: " .. tostring(Position)) end
+  DebugPrint("debug", 3, "Gas tank position cached: " .. tostring(Position))
   return Position
 end
 
@@ -849,39 +801,61 @@ local function HandleAllReloads()
 
   -- Case 1: No charges -> need refill
   if DoINeedToRefill() then
-    if DebugEnabled then DebugPrint("debug", 0, "Detected that the local player needs refilling.") end
+    DebugPrint("debug", 0, "Detected that the local player needs refilling.")
     while DoINeedToRefill() do
-      if IsReloadingBlades() then task.wait(0.5); continue end
-
-      local GasTankPosition = GetGasTankPosition()
-      if not GasTankPosition then
-        if OsClock() - Time > 10 then if DebugEnabled then DebugPrint("warn", 0, "Timeout happened for refill.") end; break end
+      if CachedAddressesOrParts.GasTankPosition then 
+        Hrp.AssemblyLinearVelocity = Vector3Zero
+        task.wait(0.24)
+        Hrp.CFrame = CFrame.new(CachedAddressesOrParts.GasTankPosition + Vector3New(5, 0, 0))
+        Hrp.AssemblyLinearVelocity = Vector3Zero
         task.wait(0.5)
+
+        keypress(0x52); task.wait(0.5); keyrelease(0x52)
+
+        task.wait(1)
         continue
-      end
 
-      Hrp.AssemblyLinearVelocity = Vector3Zero
-      task.wait(0.24)
-      Hrp.CFrame = CFrame.new(GasTankPosition + Vector3New(5, 0, 0))
-      Hrp.AssemblyLinearVelocity = Vector3Zero
-      task.wait(0.5)
+      else
+        if OsClock() - Time > 10 then DebugPrint("warn", 0, "Timeout happened for refill."); break end
+        if IsReloadingBlades() then task.wait(0.5); continue end
 
-      keypress(0x52); task.wait(0.5); keyrelease(0x52)
+        local PartAddress =  CachedAddressesOrParts.PrimaryPartOffset or  memory_read("uintptr_t", CachedAddressesOrParts.GasTankAddress + CachedAddressesOrParts.PrimaryPartOffset or GasTank.Address + PrimaryPartOffset); if PartAddress == 0 then DebugPrint("warn", 0, "No PrimaryPart for gas tank found!"); return end
+        local Primitive = memory_read("uintptr_t", PartAddress + BaseToPrimitiveOffset); if Primitive == 0 then DebugPrint("warn", 0, "No Primitive part found for 'PartAdress'!"); return end
 
-      task.wait(1)
+
+        local x = memory_read("float", Primitive + PrimitivePositionOffset)
+        local y = memory_read("float", Primitive + PrimitivePositionOffset + 4)
+        local z = memory_read("float", Primitive + PrimitivePositionOffset + 8)
+
+
+        Hrp.AssemblyLinearVelocity = Vector3Zero
+        task.wait(0.1)
+        Hrp.AssemblyLinearVelocity = Vector3Zero
+        Hrp.CFrame = CFrame.new(x + 5 , y, z)
+
+
+        task.wait(0.5)
+        keypress(0x52); task.wait(2)
+        keyrelease(0x52) 
+
+        task.wait(1)
     end
+  end
+
+
   else  -- Case 2: Only needs to reload blades
+    
     if ReloadingBlades then return end
     if os.clock() - LastReloadingTime < 3 then return end
 
-    if DebugEnabled then DebugPrint("debug", 0, "Detected that the local player needs reloading.") end
+    DebugPrint("debug", 0, "Detected that the local player needs reloading.")
     ReloadingBlades = true 
     LastReloadingTime = os.clock()
 
     task.spawn(function()
       if not isrbxactive() then ReloadingBlades = false; return end
 
-      if DebugEnabled then DebugPrint("debug", 0, "Proceeding to reload blades.") end
+      DebugPrint("debug", 0, "Proceeding to reload blades.")
       Hrp.Position = SafePos
       keypress(0x52)
       task.wait(2)
@@ -905,7 +879,7 @@ local function KillTitan(titan)
   while true do
     task.wait(0.06)
     if not IsTitanAlive(titan) then break end -- Alive check
-    if OsClock() - StartTime > 10 then if DebugEnabled then DebugPrint("warn", 0, "Timeout happened while trying to kill the titan: " .. tostring(titan.Name)) end; break end -- Timeout
+    if OsClock() - StartTime > 10 then DebugPrint("warn", 0, "Timeout happened while trying to kill the titan: " .. tostring(titan.Name)); break end -- Timeout
     if AreBladesFullyBroken() then break end
 
     if not isrbxactive() then
@@ -913,11 +887,11 @@ local function KillTitan(titan)
       Hrp.AssemblyLinearVelocity = Vector3Zero
       task.wait(0.1)
 
-    else  
+    else
       local Success = TpAboveTitan(titan)
       if not Success then
         RegisterFail(titan)
-        if DebugEnabled then DebugPrint("warn", 5, "Failed to tp. Abandoning") end
+        DebugPrint("warn", 5, "Failed to tp. Abandoning")
         task.wait(0.1)
         break
       end
@@ -953,7 +927,7 @@ local function IsObjectVisible(object): boolean
     return memory_read("byte", object.Address + VisibleOffset)
   end)
 
-  if not ok then if DebugEnabled then DebugPrint("warn", 0, "Something went wrong in memory reading for the object: " .. tostring(object:GetFullName()) .. ".") end; return false end
+  if not ok then DebugPrint("warn", 0, "Something went wrong in memory reading for the object: " .. tostring(object:GetFullName()) .. "."); return false end
 
   if value == 0 then
     return false
@@ -979,7 +953,7 @@ end
 
 local function PressRetry() 
   if not IsRetryVisible() then return end
-  if DebugEnabled then DebugPrint("debug", 0,"Pressing the retry button!") end
+  DebugPrint("debug", 0,"Pressing the retry button!")
   task.wait(0.5)
   keypress(0xDE); task.wait(0.3); keyrelease(0xDE); task.wait(1.0)
   keypress(0xDC); task.wait(0.3); keyrelease(0xDC); task.wait(1.0) 
@@ -1003,19 +977,17 @@ task.spawn(function()
   while true do
     task.wait(0.1)
     if not UserConfigs.Autofarm then task.wait(1); continue end
-    if DebugEnabled then DebugPrint("debug", 4, "The main loop is running!") end
+    DebugPrint("debug", 4, "The main loop is running!")
 
     if IsRetryVisible() then task.wait(0.5); PressRetry(); continue end
     if AreBladesFullyBroken() then HandleAllReloads(); continue end
 
+  
+    local NearestTitan = GetNearestTitan(); if not NearestTitan then 
+      DebugPrint("warn", 0, "No nearest titan found. TitansFolder children:", #TitansFolder:GetDescendants())
+      continue end
 
-
-    if not CurrentTitanTarget or not CurrentTitanTarget.Parent or not IsTitanAlive(CurrentTitanTarget) then
-      CurrentTitanTarget = GetCachedNearestTitan()
-      if DebugEnabled then DebugPrint("debug", 0, "New titan target: " .. tostring(CurrentTitanTarget.Name)) end
-    end
-
-    KillTitan(CurrentTitanTarget)
+    KillTitan(NearestTitan)
 
     task.wait(0.1)
   end
@@ -1026,7 +998,7 @@ end)
 
 task.spawn(function() -- Loop for caching and removing titans from cache.
   while true do
-    if DebugEnabled then DebugPrint("debug", 5, "Cache loop is running.") end
+    DebugPrint("debug", 5, "Cache loop is running.")
     
     for key, cache in pairs(TitansCache) do
       local Titan = cache.Instance
@@ -1044,7 +1016,7 @@ task.spawn(function() -- Loop for caching and removing titans from cache.
       if not CachedTitanList[titan] then
         CachedTitanList[titan] = true
         RegisterTitan(titan)
-        if DebugEnabled then DebugPrint("debug", 0, "New titan detected and registered: " .. tostring(titan.Name)) end
+        DebugPrint("debug", 0, "New titan detected and registered: " .. tostring(titan.Name))
       end
     end
     task.wait(3)
