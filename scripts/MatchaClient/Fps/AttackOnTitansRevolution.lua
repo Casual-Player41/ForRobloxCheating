@@ -27,7 +27,7 @@ local ScriptStart = OsClock()
 
 local UserConfigs = {
   Autofarm = true,
-  DebugMode = true
+  DebugMode = false
 }
 
 local DebugEnabled = UserConfigs.DebugMode
@@ -58,6 +58,7 @@ if DebugEnabled then
 end
 
 local function DebugPrint(mode: "warn" | "debug", maxAmount: number?, stackOffset: number?, functionName: string?, ...)
+  if not DebugEnabled then return end
 
   local Prefix = "[Kitty's Aotr]"
   local ModeLower = StringLower(mode)
@@ -111,7 +112,7 @@ local function DebugPrint(mode: "warn" | "debug", maxAmount: number?, stackOffse
   local Timestamp = OsClock() - ScriptStart
   local TimestampFormatted = string.format("%.4f", Timestamp)
 
-  -- local FinalFinalMessage = "[ " .. TimestampFormatted .. " ]" .. " [ line && name: " .. DebugLine .. " " .. FunctionName or "<anonymous> " .. " ]" .. Prefix .. " [" .. ModeLower .. "]: " .. FinalMessage
+
   local RealFinalMessage = string.format("[%s] [line: %s || func: %s] %s [%s]: %s",
     TimestampFormatted,
     tostring(DebugLine),
@@ -119,7 +120,7 @@ local function DebugPrint(mode: "warn" | "debug", maxAmount: number?, stackOffse
     Prefix,
     ModeLower,
     FinalMessage
-)
+  )
 
   
   Handler(RealFinalMessage)
@@ -138,11 +139,11 @@ if identifyexecutor and identifyexecutor() ~= "Matcha" then DebugPrint("warn", n
 if game.GameId ~= 4658598196 then DebugPrint("debug", nil, nil, nil, "Wrong game detected..?"); return end
 
 
-local Workspace = nil;    repeat task.wait(0.03);   Workspace = game:GetService("Workspace") until Workspace
-local Players = nil;      repeat task.wait(0.03);     Players = game:GetService("Players") until Players
-local LocalPlayer = nil;  repeat task.wait(0.03); LocalPlayer = Players.LocalPlayer until LocalPlayer
-local PlayerGui = nil;    repeat task.wait(0.03);   PlayerGui = LocalPlayer:FindFirstChild("PlayerGui") until PlayerGui
-local HttpService = nil;  repeat task.wait(0.03); HttpService = game:GetService("HttpService") until HttpService
+local Workspace = nil;        repeat task.wait(0.03);   Workspace = game:GetService("Workspace") until Workspace
+local Players = nil;          repeat task.wait(0.03);     Players = game:GetService("Players") until Players
+local LocalPlayer = nil;      repeat task.wait(0.03); LocalPlayer = Players.LocalPlayer until LocalPlayer
+local PlayerGui = nil;        repeat task.wait(0.03);   PlayerGui = LocalPlayer:FindFirstChild("PlayerGui") until PlayerGui
+local HttpService = nil;      repeat task.wait(0.03); HttpService = game:GetService("HttpService") until HttpService
 
 local TitansFolder = nil;     repeat task.wait(0.03); TitansFolder = Workspace:FindFirstChild("Titans") until TitansFolder
 local Interface = nil;        repeat task.wait(0.03); Interface = PlayerGui:FindFirstChild("Interface") until Interface
@@ -152,7 +153,9 @@ local CharactersFolder = nil; repeat task.wait(0.03); CharactersFolder = Workspa
 DebugPrint("debug", nil, nil, nil, "Sucesfully loaded all services and titans folder / interface.")
 
 --#region -- Game update check --
-local ExpectedUpdateTime = "2026-05-21T15:43:01.2837514Z" -- This is for the current one
+
+
+local ExpectedUpdateTime = "2026-05-21T15:43:01.283Z" -- This is for the current one
 
 
 local ok, result = pcall(function()
@@ -160,7 +163,7 @@ local ok, result = pcall(function()
 end)
 
 if not ok or not result then
-  DebugPrint("warn", nil, nil, nil, "Something went wrong in grabbing offsets: " .. tostring(result))
+  DebugPrint("warn", nil, nil, nil, "Something went wrong while grabbing game data: ", tostring(result))
   return
 end
 
@@ -169,7 +172,7 @@ local success, decoded = pcall(function()
 end)
 
 if not success or not decoded then
-  DebugPrint("warn", nil, nil, nil, "Failed to decoede offsets: " .. tostring(result))
+  DebugPrint("warn", nil, nil, nil, "Failed to decoede game data: " .. tostring(result))
   return
 end
 
@@ -372,8 +375,6 @@ local CurrentTitanTarget: Instance? = nil
 local CachedBladesBroken: boolean = false
 local LastBladeCheck: number = 0
 
-local CachedRefill: boolean = false
-local LastRefillCheck: number = 0
 
 
 local ReloadingBlades: boolean = false
@@ -418,98 +419,111 @@ end
 
 
 local function GetPlayerCharacter(player: Player): Model?
+  DebugPrint("debug", 4, nil, "GetPlayerCharacter", "Fetching character for player:", player.Name)
   local PlayerCharacterCache = CharacterCache[player.Address]
-  if not PlayerCharacterCache then return nil end
+  if not PlayerCharacterCache then DebugPrint("debug", 4, nil, "GetPlayerCharacter", "No cache for player", player.Name); return nil end
 
   local CachedCharacter = PlayerCharacterCache.Character :: Model?
-  if CachedCharacter and CachedCharacter.Parent then return CachedCharacter end
+  if CachedCharacter and CachedCharacter.Parent then DebugPrint("debug", 4, nil, "GetPlayerCharacter", "Returning cached character"); return CachedCharacter end
 
   local Character = player.Character :: Model
-  if not Character then return nil end
+  if not Character then DebugPrint("debug", 4, nil, "GetPlayerCharacter", "No character found"); return nil end
 
   PlayerCharacterCache.Character = Character
+  DebugPrint("debug", 4, nil, "GetPlayerCharacter", "Updated cache with fresh character")
   return Character
 end
 
 
 local function GetPlayerHrp(player: Player): BasePart?
+  DebugPrint("debug", 4, nil, "GetPlayerHrp", "Fetching HRP for player:", player.Name)
   local PlayerCharacterCache = CharacterCache[player.Address]
-  if not PlayerCharacterCache then return nil end
+  if not PlayerCharacterCache then DebugPrint("debug", 4, nil, "GetPlayerHrp", "No cache found"); return nil end
 
   local CachedHrp = PlayerCharacterCache.Hrp
-  if CachedHrp and CachedHrp.Parent then return CachedHrp end
+  if CachedHrp and CachedHrp.Parent then DebugPrint("debug", 4, nil, "GetPlayerHrp", "Returning cached HRP"); return CachedHrp end
 
   local Character = GetPlayerCharacter(player)
-  if not Character then return nil end
+  if not Character then DebugPrint("debug", 4, nil, "GetPlayerHrp", "Character not found"); return nil end
 
   local Hrp = GetHrp(Character)
-  if not Hrp then return nil end
+  if not Hrp then DebugPrint("debug", 4, nil, "GetPlayerHrp", "HRP not found in character"); return nil end
 
   PlayerCharacterCache.Hrp = Hrp
+  DebugPrint("debug", 4, nil, "GetPlayerHrp", "Cached new HRP")
   return Hrp
 end
 
 
 local function GetPlayerHumanoid(player: Player): Humanoid?
+  DebugPrint("debug", 4, nil, "GetPlayerHumanoid", "Fetching humanoid for player:", player.Name)
   local PlayerCharacterCache = CharacterCache[player.Address]
-  if not PlayerCharacterCache then return nil end
+  if not PlayerCharacterCache then DebugPrint("debug", 4, nil, "GetPlayerHumanoid", "No cache"); return nil end
 
   local CachedHumanoid = PlayerCharacterCache.Humanoid
-  if CachedHumanoid and CachedHumanoid.Parent then return CachedHumanoid end
+  if CachedHumanoid and CachedHumanoid.Parent then DebugPrint("debug", 4, nil, "GetPlayerHumanoid", "Cached humanoid valid"); return CachedHumanoid end
 
   local Character = GetPlayerCharacter(player)
-  if not Character then return nil end
+  if not Character then DebugPrint("debug", 4, nil, "GetPlayerHumanoid", "Character missing"); return nil end
 
   local Humanoid = GetHumanoid(Character)
-  if not Humanoid then return nil end
+  if not Humanoid then DebugPrint("debug", 4, nil, "GetPlayerHumanoid", "Humanoid missing from character"); return nil end
 
   PlayerCharacterCache.Humanoid = Humanoid
+  DebugPrint("debug", 4, nil, "GetPlayerHumanoid", "Cached new humanoid")
   return Humanoid
 end
 
 
 local function GetTitanHrp(titan: Instance): BasePart?
-  if not titan or not titan.Parent then return nil end
+  DebugPrint("debug", 4, nil, "GetTitanHrp", "Fetching HRP for titan:", titan.Name)
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "GetTitanHrp", "Titan invalid or no parent"); return nil end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return nil end
+  if not TitanCache then DebugPrint("debug", 4, nil, "GetTitanHrp", "No cache for titan"); return nil end
 
   local CachedHrp = TitanCache.Parts.HumanoidRootPart
-  if CachedHrp and CachedHrp.Parent then return CachedHrp end
+  if CachedHrp and CachedHrp.Parent then DebugPrint("debug", 4, nil, "GetTitanHrp", "Using cached HRP"); return CachedHrp end
 
   local TitanHrp = GetHrp(titan)
-  if not TitanHrp then return nil end
+  if not TitanHrp then DebugPrint("debug", 4, nil, "GetTitanHrp", "HRP not found"); return nil end
 
   TitanCache.Parts.HumanoidRootPart = TitanHrp
+  DebugPrint("debug", 4, nil, "GetTitanHrp", "Cached titan HRP")
   return TitanHrp
 end
 
 
 local function GetTitanHumanoid(titan: Instance): Humanoid?
-  if not titan or not titan.Parent then return nil end
+  DebugPrint("debug", 4, nil, "GetTitanHumanoid", "Fetching humanoid for titan:", titan.Name)
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "GetTitanHumanoid", "Titan invalid"); return nil end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return nil end
+  if not TitanCache then DebugPrint("debug", 4, nil, "GetTitanHumanoid", "Cache missing"); return nil end
 
   local CachedHumanoid = TitanCache.Parts.Humanoid
-  if CachedHumanoid and CachedHumanoid.Parent then return CachedHumanoid end
+  if CachedHumanoid and CachedHumanoid.Parent then DebugPrint("debug", 4, nil, "GetTitanHumanoid", "Using cached humanoid"); return CachedHumanoid end
 
   local TitanHumanoid = GetHumanoid(titan)
-  if not TitanHumanoid then return nil end
+  if not TitanHumanoid then DebugPrint("debug", 4, nil, "GetTitanHumanoid", "Humanoid not found"); return nil end
 
   TitanCache.Parts.Humanoid = TitanHumanoid
+  DebugPrint("debug", 4, nil, "GetTitanHumanoid", "Cached humanoid")
   return TitanHumanoid
 end
 
 
 local function RegisterPlayer(player: Player)
+  DebugPrint("debug", 4, nil, "RegisterPlayer", "Registering player:", player.Name)
   local existing = CharacterCache[player.Address]
 
   if existing then
+    DebugPrint("debug", 4, nil, "RegisterPlayer", "Updating existing cache for:", player.Name)
     existing.Character = player.Character
     return
   end
 
+  DebugPrint("debug", 4, nil, "RegisterPlayer", "Creating new cache entry for:", player.Name)
   CharacterCache[player.Address] = {
     Character = player.Character,
     Hrp = nil,
@@ -527,21 +541,22 @@ end
 --#region -- Titan functions --
 
 local function IsTitanIgnored(titan: Instance?): boolean
-  if not titan or not titan.Parent then return false end
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "IsTitanIgnored", "Titan invalid"); return false end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return false end
+  if not TitanCache then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No cache"); return false end
 
   local TitanInfo = TitanCache.Info
-  if not TitanInfo.Ignored then return false end
+  if not TitanInfo.Ignored then DebugPrint("debug", 4, nil, "IsTitanIgnored", "Not ignored"); return false end
 
   local IgnoredTime = TitanInfo.IgnoredTime
-  if not IgnoredTime then return false end
+  if not IgnoredTime then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No ignore time"); return false end
 
   local IgnoreDuration = TitanInfo.IgnoreDuration
-  if not IgnoreDuration then return false end
+  if not IgnoreDuration then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No ignore duration"); return false end
 
   if OsClock() - IgnoredTime >= IgnoreDuration then
+    DebugPrint("debug", 4, nil, "IsTitanIgnored", "Ignore duration expired, un-ignoring titan")
     TitanCache.TpFails.Count = 0
     TitanInfo.Ignored = false
     TitanInfo.IgnoredTime = nil
@@ -549,21 +564,24 @@ local function IsTitanIgnored(titan: Instance?): boolean
     return false
   end
 
+  DebugPrint("debug", 4, nil, "IsTitanIgnored", "Titan is still ignored")
   return true
 end
 
 
 local function RegisterTitanFail(titan: Instance?)
-  if not titan or not titan.Parent then return end
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "RegisterTitanFail", "Invalid titan"); return end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return end
+  if not TitanCache then DebugPrint("debug", 4, nil, "RegisterTitanFail", "No cache"); return end
 
   local TitanInfo = TitanCache.Info
 
   TitanCache.TpFails.Count += 1
+  DebugPrint("debug", 4, nil, "RegisterTitanFail", "Fail count:", TitanCache.TpFails.Count, "for titan:", titan.Name)
 
   if TitanCache.TpFails.Count > 3 then
+    DebugPrint("debug", 4, nil, "RegisterTitanFail", "Max fails reached, ignoring titan:", titan.Name)
     TitanInfo.Ignored = true
     TitanInfo.IgnoredTime = OsClock()
     TitanInfo.IgnoreDuration = 5
@@ -573,12 +591,13 @@ end
 
 local function GetTitanType(titan: Instance): string -- Needs more research
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return "Normal" end
+  if not TitanCache then DebugPrint("debug", 4, nil, "GetTitanType", "No cache, returning Normal"); return "Normal" end
 
   local TitanTypeCached = TitanCache.Info.Type
-  if TitanTypeCached then return TitanTypeCached end
+  if TitanTypeCached then DebugPrint("debug", 4, nil, "GetTitanType", "Cached type:", TitanTypeCached); return TitanTypeCached end
 
   local TitanType = titan:GetAttribute("Type") :: string? or "Normal"
+  DebugPrint("debug", 4, nil, "GetTitanType", "Found type:", TitanType)
 
   TitanCache.Info.Type = TitanType
   return TitanType
@@ -586,37 +605,39 @@ end
 
 
 local function GetTitanNape(titan: Instance): BasePart?
-  if not titan or not titan.Parent then return nil end
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "GetTitanNape", "Invalid titan"); return nil end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return nil end
+  if not TitanCache then DebugPrint("debug", 4, nil, "GetTitanNape", "No cache"); return nil end
 
   local CachedNape = TitanCache.Parts.Nape
-  if CachedNape and CachedNape.Parent then return CachedNape end
+  if CachedNape and CachedNape.Parent then DebugPrint("debug", 4, nil, "GetTitanNape", "Using cached nape"); return CachedNape end
 
   local NapePart = GetPath(titan, true, "Hitboxes", "Hit", "Nape") :: BasePart
-  if not NapePart then return nil end
+  if not NapePart then DebugPrint("debug", 4, nil, "GetTitanNape", "Nape part not found"); return nil end
 
   TitanCache.Parts.Nape = NapePart
+  DebugPrint("debug", 4, nil, "GetTitanNape", "Cached nape part")
   return NapePart
 end
 
 
 local function IsTitanAlive(titan: Instance?): boolean
-  if not titan or not titan.Parent then return false end
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "IsTitanAlive", "Titan invalid"); return false end
 
   local TitanAddress = titan.Address
-  if not TitanAddress then return false end
+  if not TitanAddress then DebugPrint("debug", 4, nil, "IsTitanAlive", "No address"); return false end
 
   local TitanCache = TitansCache[TitanAddress]
-  if not TitanCache then return false end
+  if not TitanCache then DebugPrint("debug", 4, nil, "IsTitanAlive", "No cache"); return false end
 
   local TitanHumanoid = GetTitanHumanoid(titan)
-  if not TitanHumanoid then return false end
+  if not TitanHumanoid then DebugPrint("debug", 4, nil, "IsTitanAlive", "No humanoid"); return false end
 
   local now = OsClock()
 
   if TitanCache.Info.LastAliveCheck and now - TitanCache.Info.LastAliveCheck < 0.2 then
+    DebugPrint("debug", 4, nil, "IsTitanAlive", "Using cached alive status:", TitanCache.Info.Alive)
     return TitanCache.Info.Alive or false
   end
 
@@ -624,45 +645,51 @@ local function IsTitanAlive(titan: Instance?): boolean
     return TitanHumanoid.Health > 0
   end)
 
-  if not ok then return false end
+  if not ok then DebugPrint("warn", 4, nil, "IsTitanAlive", "Error checking health"); return false end
 
   TitanCache.Info.LastAliveCheck = now
   TitanCache.Info.Alive = alive
+  DebugPrint("debug", 4, nil, "IsTitanAlive", "Checked alive:", alive, "Health:", TitanHumanoid.Health)
   return TitanCache.Info.Alive :: boolean
 end
 
 
 local function BringNapeToPlayer(titan: Instance, size: Vector3?)
-  if not titan or not titan.Parent then return end
+  DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Bringing nape to player for:", titan.Name)
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Invalid titan"); return end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return end
+  if not TitanCache then DebugPrint("debug", 4, nil, "BringNapeToPlayer", "No cache"); return end
 
   local NapePartCached = TitanCache.Parts.Nape
-  if not NapePartCached or not NapePartCached.Parent then return end
+  if not NapePartCached or not NapePartCached.Parent then DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Cached nape invalid"); return end
 
   local NapePart = GetTitanNape(titan)
-  if not NapePart or not NapePart.Parent then return end
+  if not NapePart or not NapePart.Parent then DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Nape part not found"); return end
 
   local PlayerHrp = GetPlayerHrp(LocalPlayer)
-  if not PlayerHrp then return end
+  if not PlayerHrp then DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Player HRP not found"); return end
 
   TitanCache.Parts.Nape = NapePart
 
   NapePart.CFrame = PlayerHrp.CFrame * CFrame.new(0, 2, 0)
+  DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Nape CFrame updated")
 
   if size then
     NapePart.Size = size
     TitanCache.Nape.CurrentSize = size
+    DebugPrint("debug", 4, nil, "BringNapeToPlayer", "Nape size set to:", size)
   end
 end
 
 
 local function GetTitanBobHeight(titan: Instance): number
   local TitanType = GetTitanType(titan)
-  if not TitanType then return 120 end -- default for "Attack" titan
+  if not TitanType then DebugPrint("debug", 4, nil, "GetTitanBobHeight", "No type, using default"); return 120 end -- default for "Attack" titan
 
-  return TitansInfo["Height" .. TitanType] or 120
+  local Height = TitansInfo["Height" .. TitanType] or 120
+  DebugPrint("debug", 4, nil, "GetTitanBobHeight", "Type:", TitanType, "Height:", Height)
+  return Height
 end
 
 
@@ -715,26 +742,29 @@ end
 
 
 local function TpAboveTitan(titan): boolean -- This might require changes!
-  if not titan or not titan.Parent then return false end
+  DebugPrint("debug", 4, nil, "TpAboveTitan", "Attempting teleport for:", titan.Name)
+  if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "TpAboveTitan", "Invalid titan"); return false end
 
   local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then return false end
+  if not TitanCache then DebugPrint("debug", 4, nil, "TpAboveTitan", "No cache"); return false end
 
   local LocalPlayerCache = CharacterCache[LocalPlayer.Address]
-  if not LocalPlayerCache then return false end
+  if not LocalPlayerCache then DebugPrint("debug", 4, nil, "TpAboveTitan", "No player cache"); return false end
 
   local Hrp = LocalPlayerCache.Hrp or GetPlayerHrp(LocalPlayer)
-  if not Hrp then return false end
+  if not Hrp then DebugPrint("debug", 4, nil, "TpAboveTitan", "HRP not found"); return false end
 
   local TitanHrp: BasePart? = GetTitanHrp(titan)
-  if not TitanHrp or not TitanHrp:IsA("BasePart") then return false end
+  if not TitanHrp or not TitanHrp:IsA("BasePart") then DebugPrint("debug", 4, nil, "TpAboveTitan", "Titan HRP invalid"); return false end
 
   local TitanPosition: Vector3 = TitanHrp.Position
+  DebugPrint("debug", 4, nil, "TpAboveTitan", "Titan position:", TitanPosition)
 
   local BobHeight = GetTitanBobHeight(titan)
-  if not BobHeight then return false end
+  if not BobHeight then DebugPrint("debug", 4, nil, "TpAboveTitan", "No bob height"); return false end
 
   local BobOffset = MathSin(OsClock() * MathPi * 2) * TitansInfo.BobAmplitude
+  DebugPrint("debug", 4, nil, "TpAboveTitan", "Bob offset:", BobOffset)
 
   DebugPrint("debug", 3, nil, nil, "Teleporting to the titan: " .. tostring(titan.Name))
 
@@ -751,6 +781,7 @@ local function TpAboveTitan(titan): boolean -- This might require changes!
     return false
   end
 
+  DebugPrint("debug", 4, nil, "TpAboveTitan", "Teleport successful")
   return true
 end
 
@@ -808,12 +839,14 @@ end
 
 local function GetCached(cacheKey: string, parent: Instance, ...)
   local cached = UiCache[cacheKey]
-  if cached then return cached end
+  if cached then DebugPrint("debug", 4, nil, "GetCached", "Cache hit:", cacheKey); return cached end
 
+  DebugPrint("debug", 4, nil, "GetCached", "Cache miss:", cacheKey)
   local obj = GetPath(parent, false, ...)
-  if not obj then return nil end
+  if not obj then DebugPrint("debug", 4, nil, "GetCached", "Object not found:", cacheKey); return nil end
 
   UiCache[cacheKey] = obj
+  DebugPrint("debug", 4, nil, "GetCached", "Cached object:", cacheKey)
   return obj
 end
 
@@ -884,35 +917,41 @@ end
 
 
 local function DoINeedToRefill(): boolean -- The 0 / 3 counter
+  DebugPrint("debug", 4, nil, "DoINeedToRefill", "Checking refill status")
+
   local Blades = GetCached("Blades", DownMiddlePartUi, "Blades")
-  if not Blades then return true end
+  if not Blades then DebugPrint("debug", 4, nil, "DoINeedToRefill", "Blades UI not found"); return true end
 
   local TextForBlades = GetCached("TextForBlades", Blades, "Sets") :: TextLabel?
-  if not TextForBlades then return true end
+  if not TextForBlades then DebugPrint("debug", 4, nil, "DoINeedToRefill", "Blade text not found"); return true end
 
   local Gas = GetCached("Gas", DownMiddlePartUi, "Gas")
-  if not Gas then return true end
+  if not Gas then DebugPrint("debug", 4, nil, "DoINeedToRefill", "Gas UI not found"); return true end
 
   local TextForGas = GetCached("TextForGas", Gas, "Percentage") :: TextLabel?
-  if not TextForGas then return true end
+  if not TextForGas then DebugPrint("debug", 4, nil, "DoINeedToRefill", "Gas text not found"); return true end
 
   local BladesValue = tonumber(TextForBlades.Text:match("%d+")) or 0
   local GasValue = tonumber(TextForGas.Text:match("%d+")) or 0
+  DebugPrint("debug", 4, nil, "DoINeedToRefill", "Blades:", BladesValue, "Gas:", GasValue)
 
-  return BladesValue == 0 or GasValue == 0
+  local NeedRefill = BladesValue == 0 or GasValue == 0
+  if NeedRefill then DebugPrint("debug", 4, nil, "DoINeedToRefill", "Refill needed!") end
+  return NeedRefill
 end
 
 
 local function IsReloadingBlades(): boolean
   local LocalPlayerCache = CharacterCache[LocalPlayer.Address]
-  if not LocalPlayerCache then return false end
+  if not LocalPlayerCache then DebugPrint("debug", 4, nil, "IsReloadingBlades", "No player cache"); return false end
 
   local Hrp = LocalPlayerCache.Hrp or GetPlayerHrp(LocalPlayer)
-  if not Hrp then return false end
+  if not Hrp then DebugPrint("debug", 4, nil, "IsReloadingBlades", "No HRP"); return false end
 
-  if Hrp:FindFirstChild("BV") then return false end
+  if Hrp:FindFirstChild("BV") then DebugPrint("debug", 4, nil, "IsReloadingBlades", "BV found, not reloading"); return false end
   -- Basically, when reloading the 0 / 3 counter, the BV is missing.
 
+  DebugPrint("debug", 4, nil, "IsReloadingBlades", "Blades are reloading")
   return true
 end
 
@@ -1019,7 +1058,7 @@ end
 --#region -- Ui elements functions --
 
 local function IsObjectVisible(object: GuiObject): boolean
-  if not object or not object.Address then return false end
+  if not object or not object.Address then DebugPrint("debug", 4, nil, "IsObjectVisible", "Object invalid"); return false end
 
   local ok, value = pcall(function()
     return memory_read("byte", object.Address + VisibleOffset)
@@ -1030,21 +1069,26 @@ local function IsObjectVisible(object: GuiObject): boolean
     return false
   end
 
-  return value ~= 0
+  local visible = value ~= 0
+  DebugPrint("debug", 4, nil, "IsObjectVisible", "Object:", object.Name, "Visible:", visible)
+  return visible
 end
 
 
 local function IsRetryVisible(): boolean
+  DebugPrint("debug", 4, nil, "IsRetryVisible", "Checking retry visibility")
   local RewardsFrame
 
   if UiCache.RewardsFrame and UiCache.RewardsFrame.Parent then
+    DebugPrint("debug", 4, nil, "IsRetryVisible", "Using cached rewards frame")
     return IsObjectVisible(UiCache.RewardsFrame)
   end
 
   RewardsFrame = GetPath(PlayerGui, true, "Interface", "Rewards") :: GuiObject
-  if not RewardsFrame then return false end
+  if not RewardsFrame then DebugPrint("debug", 4, nil, "IsRetryVisible", "Rewards frame not found"); return false end
 
   UiCache.RewardsFrame = RewardsFrame
+  DebugPrint("debug", 4, nil, "IsRetryVisible", "Cached new rewards frame")
   return IsObjectVisible(RewardsFrame)
 end
 
@@ -1087,23 +1131,25 @@ end
 
 -- // Some functions that couldn't fit before \\ --
 local function KillTitan(titan: Instance)
-  if not titan or not titan.Parent then return end
+  DebugPrint("debug", 3, nil, "KillTitan", "Starting kill sequence for:", titan.Name)
+  if not titan or not titan.Parent then DebugPrint("debug", 3, nil, "KillTitan", "Invalid titan"); return end
 
   local StartTime = OsClock()
 
-  local LocalPlayerCharacterCache = CharacterCache[LocalPlayer.Address]; if not LocalPlayerCharacterCache then return end
-  local Hrp = LocalPlayerCharacterCache.Hrp or GetPlayerHrp(LocalPlayer); if not Hrp then return end
+  local LocalPlayerCharacterCache = CharacterCache[LocalPlayer.Address]; if not LocalPlayerCharacterCache then DebugPrint("debug", 3, nil, "KillTitan", "No player cache"); return end
+  local Hrp = LocalPlayerCharacterCache.Hrp or GetPlayerHrp(LocalPlayer); if not Hrp then DebugPrint("debug", 3, nil, "KillTitan", "No HRP"); return end
 
   while true do
     task.wait(0.06)
-    if not IsTitanAlive(titan) then break end
-    if AreBladesFullyBroken() then break end
+    if not IsTitanAlive(titan) then DebugPrint("debug", 3, nil, "KillTitan", "Titan died"); break end
+    if AreBladesFullyBroken() then DebugPrint("debug", 3, nil, "KillTitan", "Blades broken"); break end
     if OsClock() - StartTime > 10 then 
       DebugPrint("warn", 0, nil, nil, "Timeout happened while trying to kill the titan: " .. tostring(titan.Name))
       break
     end
 
     if not isrbxactive() then
+      DebugPrint("debug", 4, nil, "KillTitan", "Window not active, moving to safe position")
       Hrp.CFrame = SafePos
       Hrp.AssemblyLinearVelocity = Vector3Zero
       task.wait(0.5)
@@ -1120,6 +1166,7 @@ local function KillTitan(titan: Instance)
       end
 
       BringNapeToPlayer(titan, Vector3New(15, 15, 15))
+      DebugPrint("debug", 4, nil, "KillTitan", "Attacking nape")
 
       task.wait()
       mouse1click()
@@ -1129,6 +1176,7 @@ local function KillTitan(titan: Instance)
       keyrelease(0x20)
     end
   end
+  DebugPrint("debug", 3, nil, "KillTitan", "Kill sequence ended for:", titan.Name)
 end
 
 
@@ -1141,22 +1189,27 @@ end
 task.spawn(function() -- KnownTitans updater and TitansCache cleanup
   while true do
     DebugPrint("debug", 4, nil, nil, "The known titans updater is running!")
+    local TitansCount = #TitansFolder:GetChildren()
+    DebugPrint("debug", 4, nil, nil, "Titans in folder:", TitansCount)
 
     for _, titan in ipairs(TitansFolder:GetChildren()) do
       if not titan:IsA("Model") then continue end
 
       if not KnownTitans[titan.Address] then
+        DebugPrint("debug", 4, nil, nil, "Registered new titan:", titan.Name)
         KnownTitans[titan.Address] = titan
       end
     end
 
     for address, titan in pairs(KnownTitans) do
       if not titan or not titan.Parent or not GetHumanoid(titan) then
+        DebugPrint("debug", 4, nil, nil, "Cleaning up dead/invalid titan")
         KnownTitans[address] = nil
         TitansCache[address] = nil
       end
     end
 
+    DebugPrint("debug", 4, nil, nil, "Known titans count:", #KnownTitans)
     task.wait(1)
   end
 end)
@@ -1165,12 +1218,15 @@ end)
 task.spawn(function() -- Titans cache
   while true do
     DebugPrint("debug", 4, nil, nil, "The titan cache loop is running!")
+    local CachedCount = 0
     for _, titan in pairs(KnownTitans) do
       if titan and titan.Parent and GetHumanoid(titan) then
         RegisterTitan(titan)
+        CachedCount += 1
       end
       task.wait()
     end
+    DebugPrint("debug", 4, nil, nil, "Titans cached:", CachedCount)
 
     task.wait(3)
   end
@@ -1182,6 +1238,7 @@ task.spawn(function() -- The main loop, where the magic happens
     DebugPrint("debug", 4, nil, nil, "The main loop is running!")
 
     if not UserConfigs.Autofarm then
+      DebugPrint("debug", 4, nil, nil, "Autofarm disabled, waiting...")
       task.wait(1)
       continue
     end
@@ -1208,6 +1265,7 @@ task.spawn(function() -- The main loop, where the magic happens
       continue
     end
 
+    DebugPrint("debug", 2, nil, nil, "Engaging titan:", NearestTitan.Name)
     KillTitan(NearestTitan)
     task.wait(0.1)
   end
@@ -1217,20 +1275,28 @@ end)
 task.spawn(function() -- Players cache
   while true do
     DebugPrint("debug", 4, nil, nil, "The player cache loop is running!")
+    local PlayerCount = #Players:GetPlayers()
+    DebugPrint("debug", 4, nil, nil, "Players online:", PlayerCount)
+    
     for _, player in ipairs(Players:GetPlayers()) do
       RegisterPlayer(player)
       task.wait()
     end
 
+    local CachedCount = 0
     for playerAddress, cache in pairs(CharacterCache) do
       local character = cache.Character
 
       if not character or not character.Parent then
+        DebugPrint("debug", 4, nil, nil, "Removing stale cache for:", cache.Username)
         CharacterCache[playerAddress] = nil
+      else
+        CachedCount += 1
       end
       task.wait()
     end
-
+    
+    DebugPrint("debug", 4, nil, nil, "Active character caches:", CachedCount)
     task.wait(10)
   end
 end)
