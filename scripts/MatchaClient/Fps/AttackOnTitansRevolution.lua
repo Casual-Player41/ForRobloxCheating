@@ -27,7 +27,7 @@ local ScriptStart = OsClock()
 
 local UserConfigs = {
   Autofarm = true,
-  DebugMode = false
+  DebugMode = true
 }
 
 local DebugEnabled = UserConfigs.DebugMode
@@ -155,7 +155,8 @@ DebugPrint("debug", nil, nil, nil, "Sucesfully loaded all services and titans fo
 --#region -- Game update check --
 
 
-local ExpectedUpdateTime = "2026-05-21T15:43:01.283Z" -- This is for the current one
+
+local ExpectedUpdateTime = "2026-05-24T12:51:24.3084248Z" -- This is for the current one
 
 
 local ok, result = pcall(function()
@@ -543,17 +544,11 @@ end
 local function IsTitanIgnored(titan: Instance?): boolean
   if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "IsTitanIgnored", "Titan invalid"); return false end
 
-  local TitanCache = TitansCache[titan.Address]
-  if not TitanCache then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No cache"); return false end
+  local TitanCache = TitansCache[titan.Address]; if not TitanCache then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No cache"); return false end
+  local TitanInfo = TitanCache.Info; if not TitanInfo.Ignored then DebugPrint("debug", 4, nil, "IsTitanIgnored", "Not ignored"); return false end
 
-  local TitanInfo = TitanCache.Info
-  if not TitanInfo.Ignored then DebugPrint("debug", 4, nil, "IsTitanIgnored", "Not ignored"); return false end
-
-  local IgnoredTime = TitanInfo.IgnoredTime
-  if not IgnoredTime then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No ignore time"); return false end
-
-  local IgnoreDuration = TitanInfo.IgnoreDuration
-  if not IgnoreDuration then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No ignore duration"); return false end
+  local IgnoredTime = TitanInfo.IgnoredTime; if not IgnoredTime then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No ignore time"); return false end
+  local IgnoreDuration = TitanInfo.IgnoreDuration; if not IgnoreDuration then DebugPrint("debug", 4, nil, "IsTitanIgnored", "No ignore duration"); return false end
 
   if OsClock() - IgnoredTime >= IgnoreDuration then
     DebugPrint("debug", 4, nil, "IsTitanIgnored", "Ignore duration expired, un-ignoring titan")
