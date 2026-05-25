@@ -151,6 +151,8 @@ local CharactersFolder = nil; repeat task.wait(0.03); CharactersFolder = Workspa
                               repeat task.wait(0.03); until TitansFolder:FindFirstChildOfClass("Model")
 
 DebugPrint("debug", nil, nil, nil, "Sucesfully loaded all services and titans folder / interface.")
+--[===[
+
 
 --#region -- Game update check --
 
@@ -185,7 +187,7 @@ end
 DebugPrint("debug", nil, nil, nil, "No updated detected. Proceeding :D")
 
 --#endregion -- Game update check --
-
+]===]
 
 --#region -- Types, Tables && Caches, Variables --
 
