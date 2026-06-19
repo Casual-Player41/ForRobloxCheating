@@ -346,6 +346,7 @@ local CachedBladesBroken: boolean = false
 local LastBladeCheck: number = 0
 
 local CurrentRobloxState = "Active"
+local WhatShouldIBeDoing = "attack"
 
 local ReloadingBlades: boolean = false
 local LastReloadingTime: number = 0
@@ -718,7 +719,7 @@ end
 
 
 local function TpAboveTitan(titan): boolean -- This might require changes!
-  DebugPrint("debug", 4, nil, "TpAboveTitan", "Attempting teleport for:", titan.Name)
+  DebugPrint("debug", 4, nil, "TpAboveTitan", "Attempting teleport for: ", (titan.Name or "<nil>"))
   if not titan or not titan.Parent then DebugPrint("debug", 4, nil, "TpAboveTitan", "Invalid titan"); return false end
 
   local TitanCache = TitansCache[titan.Address]; if not TitanCache then DebugPrint("debug", 4, nil, "TpAboveTitan", "No cache"); return false end
@@ -884,6 +885,7 @@ local function DoINeedToRefill(): boolean -- The 0 / 3 counter
 
   if NeedRefill then
     DebugPrint("debug", 4, nil, "DoINeedToRefill", "Refill needed!")
+    WhatShouldIBeDoing = "refill"
   end
 
   return NeedRefill
@@ -914,7 +916,7 @@ local function HandleAllReloads()
     DebugPrint("debug", 0, nil, nil, "Detected that the local player needs refilling.")
 
     while true do
-      if not DoINeedToRefill() then break end
+      if not DoINeedToRefill() then WhatShouldIBeDoing = "attack"; break end
       if IsReloadingBlades() then
         task.wait(0.5)
         continue
@@ -922,6 +924,7 @@ local function HandleAllReloads()
 
       if os.clock() - Time > 10 then
         DebugPrint("warn", 0, nil, nil, "Timeout happened while trying to refill?")
+        WhatShouldIBeDoing = "attack"
         break
       end
 
@@ -1115,6 +1118,7 @@ local function KillTitan(titan: Instance)
       DebugPrint("debug", 4, nil, "KillTitan", "Window not active, waiting...")
       task.wait(0.5)
     else
+      if WhatShouldIBeDoing ~= "attack" then task.wait(0.1); continue end
       CurrentTitanTarget = titan
 
       BringNapeToPlayer(titan, Vector3New(15, 15, 15))
@@ -1277,7 +1281,16 @@ end)
 
 
 game:GetService("RunService").RenderStepped:Connect(function(delta)
-  TpAboveTitan(CurrentTitanTarget)
+  if WhatShouldIBeDoing ~= "attack" then return end
+  if CurrentRobloxState == "inactive" then
+    local Hrp = GetPlayerHrp(LocalPlayer); if not IsValid(Hrp) then return end
+    Hrp.CFrame = SafePos
+    return
+  end
+
+  if CurrentTitanTarget then
+    TpAboveTitan(CurrentTitanTarget)
+  end
 end)
 
 
